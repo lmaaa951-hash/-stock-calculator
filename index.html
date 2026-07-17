@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>حاسبة الأسهم والأوبشن</title>
+<style>
+:root{
+  --bg:#0b0d10;--card:#15191f;--card2:#1b2027;--text:#f5f7fa;--muted:#9aa4b2;
+  --line:#2a313b;--accent:#4da3ff;--green:#28c76f;--red:#ff5c5c;--yellow:#ffcc66;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;background:var(--bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Tahoma,Arial,sans-serif;
+}
+.app{max-width:980px;margin:auto;padding:18px 14px 40px}
+h1{font-size:24px;margin:4px 0 16px}
+.tabs{display:flex;gap:8px;position:sticky;top:0;background:rgba(11,13,16,.95);padding:8px 0;z-index:5}
+.tab{
+  flex:1;border:1px solid var(--line);background:var(--card);color:var(--text);
+  border-radius:12px;padding:12px;font-weight:700
+}
+.tab.active{background:var(--accent);color:#001a33;border-color:var(--accent)}
+.section{display:none}.section.active{display:block}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin:12px 0}
+.card h2{font-size:17px;margin:0 0 12px}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.grid-3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+label{display:block;color:var(--muted);font-size:12px;margin-bottom:6px}
+input,select{
+  width:100%;background:var(--card2);border:1px solid var(--line);color:var(--text);
+  border-radius:10px;padding:11px;font-size:16px;outline:none
+}
+input:focus,select:focus{border-color:var(--accent)}
+button{cursor:pointer}
+.primary{
+  width:100%;border:0;background:var(--accent);color:#001a33;border-radius:12px;
+  padding:12px;font-size:16px;font-weight:800;margin-top:10px
+}
+.secondary{
+  border:1px solid var(--line);background:var(--card2);color:var(--text);
+  border-radius:10px;padding:9px 12px;font-weight:700
+}
+.danger{background:#3b1818;color:#ffb5b5;border-color:#6b2525}
+.summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.metric{background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:12px}
+.metric .k{font-size:12px;color:var(--muted)}
+.metric .v{font-size:20px;font-weight:800;margin-top:5px}
+.green{color:var(--green)} .red{color:var(--red)}
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:720px}
+th,td{padding:9px;border-bottom:1px solid var(--line);text-align:center;font-size:13px}
+th{color:var(--muted);font-weight:700}
+td input{min-width:92px;padding:8px;font-size:14px}
+.small{font-size:12px;color:var(--muted);line-height:1.6}
+.empty{color:var(--muted);text-align:center;padding:18px}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap}
+.toolbar button{flex:1}
+@media(max-width:620px){
+  .grid,.grid-3,.summary{grid-template-columns:1fr}
+  h1{font-size:21px}
+  .app{padding:12px 10px 30px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>حاسبة الأسهم والأوبشن</h1>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="stocks">الأسهم</button>
+    <button class="tab" data-tab="options">الأوبشن</button>
+  </div>
+
+  <section id="stocks" class="section active">
+    <div class="card">
+      <h2>إضافة صفقة سهم</h2>
+      <div class="grid-3">
+        <div><label>رمز السهم</label><input id="sTicker" placeholder="مثال: AAPL"></div>
+        <div><label>سعر الشراء</label><input id="sPrice" type="number" step="0.0001" inputmode="decimal"></div>
+        <div><label>عدد الأسهم</label><input id="sQty" type="number" step="1" inputmode="numeric"></div>
+        <div><label>قيمة الصفقة / التكلفة الفعلية</label><input id="sActual" type="number" step="0.01" inputmode="decimal" placeholder="أدخلها مع السعر أو الكمية"></div>
+        <div><label>السعر الحالي / المستهدف</label><input id="sCurrent" type="number" step="0.0001" inputmode="decimal"></div>
+      </div>
+      <div class="small" style="margin-top:10px">أدخل أي خانتين من: سعر الشراء، عدد الأسهم، قيمة الصفقة — وسيُحسب الثالث تلقائيًا. عدد الأسهم يُقرب للأسفل بدون كسور.</div><button class="primary" id="addStock">إضافة صفقة</button>
+    </div>
+
+    <div class="card">
+      <h2>ملخص الأسهم</h2>
+      <div class="summary">
+        <div class="metric"><div class="k">إجمالي الأسهم</div><div class="v" id="sumShares">0</div></div>
+        <div class="metric"><div class="k">إجمالي التكلفة</div><div class="v" id="sumCost">$0.00</div></div>
+        <div class="metric"><div class="k">متوسط الشراء</div><div class="v" id="sumAvg">$0.00</div></div>
+        <div class="metric"><div class="k">القيمة الحالية</div><div class="v" id="sumValue">$0.00</div></div>
+        <div class="metric"><div class="k">الربح / الخسارة</div><div class="v" id="sumPL">$0.00</div></div>
+        <div class="metric"><div class="k">النسبة</div><div class="v" id="sumPct">0.00%</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>صفقات الأسهم</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>الرمز</th><th>السعر</th><th>الكمية</th><th>التكلفة</th>
+              <th>السعر الحالي</th><th>القيمة</th><th>الربح/الخسارة</th><th>حذف</th>
+            </tr>
+          </thead>
+          <tbody id="stockRows"></tbody>
+        </table>
+      </div>
+      <div class="toolbar" style="margin-top:12px">
+        <button class="secondary" id="exportData">تصدير نسخة احتياطية</button>
+        <button class="secondary" id="importBtn">استيراد نسخة</button>
+        <button class="secondary danger" id="clearStocks">حذف جميع الأسهم</button>
+      </div>
+      <input type="file" id="importFile" accept=".json" hidden>
+    </div>
+
+    <div class="card">
+      <h2>أداة سريعة</h2>
+      <div class="grid">
+        <div><label>المبلغ المتوفر</label><input id="budget" type="number" step="0.01" inputmode="decimal"></div>
+        <div><label>سعر السهم</label><input id="budgetPrice" type="number" step="0.0001" inputmode="decimal"></div>
+      </div>
+      <div class="small" id="budgetResult" style="margin-top:10px">عدد الأسهم: 0</div>
+    </div>
+  </section>
+
+  <section id="options" class="section">
+    <div class="card">
+      <h2>إضافة صفقة أوبشن</h2>
+      <div class="grid-3">
+        <div><label>رمز السهم</label><input id="oTicker" placeholder="مثال: TSLA"></div>
+        <div><label>النوع</label><select id="oType"><option>CALL</option><option>PUT</option></select></div>
+        <div><label>Strike</label><input id="oStrike" type="number" step="0.01" inputmode="decimal"></div>
+        <div><label>تاريخ الانتهاء</label><input id="oExpiry" type="date"></div>
+        <div><label>سعر شراء العقد</label><input id="oBuy" type="number" step="0.01" inputmode="decimal"></div>
+        <div><label>عدد العقود</label><input id="oContracts" type="number" step="1" inputmode="numeric"></div>
+        <div><label>السعر الحالي / البيع</label><input id="oCurrent" type="number" step="0.01" inputmode="decimal"></div>
+      </div>
+      <button class="primary" id="addOption">إضافة صفقة أوبشن</button>
+    </div>
+
+    <div class="card">
+      <h2>ملخص الأوبشن</h2>
+      <div class="summary">
+        <div class="metric"><div class="k">إجمالي التكلفة</div><div class="v" id="oSumCost">$0.00</div></div>
+        <div class="metric"><div class="k">القيمة الحالية</div><div class="v" id="oSumValue">$0.00</div></div>
+        <div class="metric"><div class="k">الربح / الخسارة</div><div class="v" id="oSumPL">$0.00</div></div>
+        <div class="metric"><div class="k">النسبة</div><div class="v" id="oSumPct">0.00%</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>صفقات الأوبشن</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>الرمز</th><th>النوع</th><th>Strike</th><th>الانتهاء</th>
+              <th>الشراء</th><th>العقود</th><th>الحالي</th><th>التكلفة</th>
+              <th>القيمة</th><th>P/L</th><th>التعادل</th><th>حذف</th>
+            </tr>
+          </thead>
+          <tbody id="optionRows"></tbody>
+        </table>
+      </div>
+      <button class="secondary danger" id="clearOptions" style="width:100%;margin-top:12px">حذف جميع الأوبشن</button>
+    </div>
+  </section>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const fmt = n => '$' + Number(n || 0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const pct = n => Number(n || 0).toFixed(2) + '%';
+const uid = () => Date.now().toString(36)+Math.random().toString(36).slice(2);
+
+let data = JSON.parse(localStorage.getItem('tradeCalculatorData') || '{"stocks":[],"options":[]}');
+
+function save(){ localStorage.setItem('tradeCalculatorData', JSON.stringify(data)); }
+function cls(el,n){ el.classList.remove('green','red'); if(n>0) el.classList.add('green'); if(n<0) el.classList.add('red'); }
+
+document.querySelectorAll('.tab').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.section').forEach(x=>x.classList.remove('active'));
+    btn.classList.add('active'); $(btn.dataset.tab).classList.add('active');
+  });
+});
+
+function stockCost(s){
+  const actual = Number(s.actual || 0);
+  return actual > 0 ? actual : Number(s.price||0)*Number(s.qty||0);
+}
+function renderStocks(){
+  const body=$('stockRows'); body.innerHTML='';
+  let totalQty=0,totalCost=0,totalValue=0;
+  data.stocks.forEach(s=>{
+    const cost=stockCost(s), value=Number(s.current||0)*Number(s.qty||0), pl=value-cost;
+    totalQty+=Number(s.qty||0); totalCost+=cost; totalValue+=value;
+    const tr=document.createElement('tr');
+    tr.innerHTML=`
+      <td><input value="${s.ticker||''}" data-k="ticker"></td>
+      <td><input type="number" step="0.0001" value="${s.price||''}" data-k="price"></td>
+      <td><input type="number" step="1" value="${s.qty||''}" data-k="qty"></td>
+      <td>${fmt(cost)}</td>
+      <td><input type="number" step="0.0001" value="${s.current||''}" data-k="current"></td>
+      <td>${fmt(value)}</td>
+      <td class="${pl>0?'green':pl<0?'red':''}">${fmt(pl)}</td>
+      <td><button class="secondary danger">✖</button></td>`;
+    tr.querySelectorAll('input').forEach(inp=>inp.addEventListener('input',()=>{
+      s[inp.dataset.k]=inp.dataset.k==='ticker'?inp.value.toUpperCase():Number(inp.value);
+      save();renderStocks();
+    }));
+    tr.querySelector('button').addEventListener('click',()=>{data.stocks=data.stocks.filter(x=>x.id!==s.id);save();renderStocks();});
+    body.appendChild(tr);
+  });
+  const pl=totalValue-totalCost, p=totalCost?pl/totalCost*100:0;
+  $('sumShares').textContent=totalQty.toLocaleString('en-US');
+  $('sumCost').textContent=fmt(totalCost);
+  $('sumAvg').textContent=fmt(totalQty?totalCost/totalQty:0);
+  $('sumValue').textContent=fmt(totalValue);
+  $('sumPL').textContent=fmt(pl); cls($('sumPL'),pl);
+  $('sumPct').textContent=pct(p); cls($('sumPct'),p);
+  if(!data.stocks.length) body.innerHTML='<tr><td colspan="8" class="empty">لا توجد صفقات بعد</td></tr>';
+}
+
+let stockAutoLock=false;
+let lastStockField='';
+
+function autoCalculateStock(changedId){
+  if(stockAutoLock) return;
+  stockAutoLock=true;
+  lastStockField=changedId;
+
+  let price=parseFloat($('sPrice').value);
+  let qty=parseFloat($('sQty').value);
+  let amount=parseFloat($('sActual').value);
+
+  const hasPrice=Number.isFinite(price) && price>0;
+  const hasQty=Number.isFinite(qty) && qty>0;
+  const hasAmount=Number.isFinite(amount) && amount>0;
+
+  if(changedId==='sPrice'){
+    if(hasQty) $('sActual').value=(price*qty).toFixed(2);
+    else if(hasAmount) $('sQty').value=Math.floor(amount/price);
+  } else if(changedId==='sQty'){
+    qty=Math.floor(qty);
+    if(hasQty) $('sQty').value=qty;
+    if(hasPrice) $('sActual').value=(price*qty).toFixed(2);
+    else if(hasAmount) $('sPrice').value=(amount/qty).toFixed(4);
+  } else if(changedId==='sActual'){
+    if(hasPrice) $('sQty').value=Math.floor(amount/price);
+    else if(hasQty) $('sPrice').value=(amount/qty).toFixed(4);
+  }
+
+  stockAutoLock=false;
+}
+
+['sPrice','sQty','sActual'].forEach(id=>{
+  $(id).addEventListener('input',()=>autoCalculateStock(id));
+});
+
+$('addStock').addEventListener('click',()=>{
+  let price=Number($('sPrice').value);
+  let qty=Math.floor(Number($('sQty').value));
+  let actual=Number($('sActual').value);
+
+  const entered=[price>0,qty>0,actual>0].filter(Boolean).length;
+  if(entered<2){
+    alert('أدخل أي خانتين من: سعر الشراء، الكمية، قيمة الصفقة');
+    return;
+  }
+
+  if(!(price>0) && qty>0 && actual>0) price=actual/qty;
+  if(!(qty>0) && price>0 && actual>0) qty=Math.floor(actual/price);
+  if(!(actual>0) && price>0 && qty>0) actual=price*qty;
+
+  if(!(price>0) || !(qty>0) || !(actual>0)){
+    alert('تعذر الحساب. تأكد أن القيم أكبر من صفر');
+    return;
+  }
+
+  data.stocks.push({
+    id:uid(),
+    ticker:$('sTicker').value.trim().toUpperCase(),
+    price:Number(price.toFixed(4)),
+    qty,
+    actual:Number(actual.toFixed(2)),
+    current:Number($('sCurrent').value)
+  });
+
+  ['sTicker','sPrice','sQty','sActual','sCurrent'].forEach(id=>$(id).value='');
+  save();
+  renderStocks();
+});
+
+function renderOptions(){
+  const body=$('optionRows'); body.innerHTML='';
+  let totalCost=0,totalValue=0;
+  data.options.forEach(o=>{
+    const cost=Number(o.buy||0)*100*Number(o.contracts||0);
+    const value=Number(o.current||0)*100*Number(o.contracts||0);
+    const pl=value-cost;
+    totalCost+=cost; totalValue+=value;
+    const be=o.type==='CALL'?Number(o.strike||0)+Number(o.buy||0):Number(o.strike||0)-Number(o.buy||0);
+    const tr=document.createElement('tr');
+    tr.innerHTML=`
+      <td>${o.ticker||''}</td><td>${o.type}</td><td>${Number(o.strike||0).toFixed(2)}</td>
+      <td>${o.expiry||'-'}</td><td>${fmt(o.buy)}</td><td>${o.contracts}</td>
+      <td><input type="number" step="0.01" value="${o.current||''}"></td>
+      <td>${fmt(cost)}</td><td>${fmt(value)}</td>
+      <td class="${pl>0?'green':pl<0?'red':''}">${fmt(pl)}<br><span class="small">${pct(cost?pl/cost*100:0)}</span></td>
+      <td>${fmt(be)}</td><td><button class="secondary danger">✖</button></td>`;
+    tr.querySelector('input').addEventListener('input',e=>{o.current=Number(e.target.value);save();renderOptions();});
+    tr.querySelector('button').addEventListener('click',()=>{data.options=data.options.filter(x=>x.id!==o.id);save();renderOptions();});
+    body.appendChild(tr);
+  });
+  const pl=totalValue-totalCost,p=totalCost?pl/totalCost*100:0;
+  $('oSumCost').textContent=fmt(totalCost);
+  $('oSumValue').textContent=fmt(totalValue);
+  $('oSumPL').textContent=fmt(pl);cls($('oSumPL'),pl);
+  $('oSumPct').textContent=pct(p);cls($('oSumPct'),p);
+  if(!data.options.length) body.innerHTML='<tr><td colspan="12" class="empty">لا توجد صفقات أوبشن بعد</td></tr>';
+}
+
+$('addOption').addEventListener('click',()=>{
+  const buy=Number($('oBuy').value), contracts=Number($('oContracts').value), strike=Number($('oStrike').value);
+  if(!buy||!contracts||!strike){alert('أدخل Strike وسعر الشراء وعدد العقود');return;}
+  data.options.push({
+    id:uid(),ticker:$('oTicker').value.trim().toUpperCase(),type:$('oType').value,
+    strike,expiry:$('oExpiry').value,buy,contracts,current:Number($('oCurrent').value)
+  });
+  ['oTicker','oStrike','oExpiry','oBuy','oContracts','oCurrent'].forEach(id=>$(id).value='');
+  save();renderOptions();
+});
+
+$('clearStocks').addEventListener('click',()=>{if(confirm('حذف جميع صفقات الأسهم؟')){data.stocks=[];save();renderStocks();}});
+$('clearOptions').addEventListener('click',()=>{if(confirm('حذف جميع صفقات الأوبشن؟')){data.options=[];save();renderOptions();}});
+
+function calcBudget(){
+  const b=Number($('budget').value), p=Number($('budgetPrice').value);
+  const shares=p?Math.floor(b/p):0, used=shares*p, left=b-used;
+  $('budgetResult').textContent=`عدد الأسهم: ${shares.toLocaleString('en-US')} — المبلغ المستخدم: ${fmt(used)} — المتبقي: ${fmt(left)}`;
+}
+$('budget').addEventListener('input',calcBudget);$('budgetPrice').addEventListener('input',calcBudget);
+
+$('exportData').addEventListener('click',()=>{
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='stock-options-backup.json';a.click();URL.revokeObjectURL(a.href);
+});
+$('importBtn').addEventListener('click',()=>$('importFile').click());
+$('importFile').addEventListener('change',e=>{
+  const f=e.target.files[0]; if(!f)return;
+  const r=new FileReader();
+  r.onload=()=>{try{const x=JSON.parse(r.result);if(!x.stocks||!x.options)throw 0;data=x;save();renderStocks();renderOptions();alert('تم الاستيراد');}catch{alert('الملف غير صالح');}};
+  r.readAsText(f);
+});
+
+renderStocks();renderOptions();calcBudget();
+</script>
+</body>
+</html>
